@@ -84,14 +84,14 @@ test.describe('Authentication Module', () => {
         await page.getByLabel('Country *').selectOption(testUser.country);
         await page.getByLabel('State *').fill(testUser.state);
         await page.getByLabel('City *').fill(testUser.city);
-        await page.getByLabel('Zipcode *').fill(testUser.zipcode);
+        await page.locator('#zipcode').fill(testUser.zipcode);
         await page.getByLabel('Mobile Number *').fill(testUser.mobileNumber);
 
         // Click 'Create Account' button
         await page.getByRole('button', { name: 'Create Account' }).click();
 
         // 3. Assert - Verify 'ACCOUNT CREATED!' is visible
-        await expect(page.getByText('Account Created!')).toBeVisible();
+        await expect(page.getByText('ACCOUNT CREATED!')).toBeVisible();
 
         // Click 'Continue' button
         await page.getByRole('link', { name: 'Continue' }).click();
@@ -150,7 +150,7 @@ test.describe('Authentication Module', () => {
         await page.getByLabel('Country *').selectOption('United States');
         await page.getByLabel('State *').fill('CA');
         await page.getByLabel('City *').fill('LA');
-        await page.getByLabel('Zipcode *').fill('90001');
+        await page.locator('#zipcode').fill('90001');
         await page.getByLabel('Mobile Number *').fill('1234567890');
         await page.getByRole('button', { name: 'Create Account' }).click();
         await page.getByRole('link', { name: 'Continue' }).click();
@@ -267,7 +267,7 @@ test.describe('Authentication Module', () => {
         await page.getByLabel('Country *').selectOption('United States');
         await page.getByLabel('State *').fill('CA');
         await page.getByLabel('City *').fill('LA');
-        await page.getByLabel('Zipcode *').fill('90001');
+        await page.locator('#zipcode').fill('90001');
         await page.getByLabel('Mobile Number *').fill('1234567890');
         await page.getByRole('button', { name: 'Create Account' }).click();
         await page.getByRole('link', { name: 'Continue' }).click();
@@ -331,7 +331,7 @@ test.describe('Authentication Module', () => {
         await page.getByLabel('Country *').selectOption('United States');
         await page.getByLabel('State *').fill('CA');
         await page.getByLabel('City *').fill('LA');
-        await page.getByLabel('Zipcode *').fill('90001');
+        await page.locator('#zipcode').fill('90001');
         await page.getByLabel('Mobile Number *').fill('1234567890');
         await page.getByRole('button', { name: 'Create Account' }).click();
         await page.getByRole('link', { name: 'Continue' }).click();
