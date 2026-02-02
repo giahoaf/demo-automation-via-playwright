@@ -9,9 +9,14 @@
  * - TC_005: Register with existing email (8 steps)
  * 
  * @see test-cases/AutomationExercise_TestCases.md
+ * 
+ * Refactored with Page Object Model for maintainability and reusability.
  */
 
 import { test, expect } from '@playwright/test';
+import { HomePage } from '../pages/HomePage';
+import { LoginPage } from '../pages/LoginPage';
+import { RegistrationPage, UserData } from '../pages/RegistrationPage';
 
 test.describe('Authentication Module', () => {
 
@@ -21,22 +26,22 @@ test.describe('Authentication Module', () => {
      * Steps: 18
      */
     test('TC_001: Register User', async ({ page }) => {
-        // 1. Setup - Navigate to homepage
-        await page.goto('https://automationexercise.com');
-        await page.waitForLoadState('networkidle');
+        // 1. Setup - Initialize page objects and navigate
+        const homePage = new HomePage(page);
+        const regPage = new RegistrationPage(page);
 
-        // Verify home page is visible
+        await homePage.goto();
         await expect(page).toHaveTitle(/Automation Exercise/);
 
-        // 2. Action - Click on 'Signup / Login' button
-        await page.getByRole('link', { name: 'Signup / Login' }).click();
+        // 2. Action - Navigate to signup
+        await homePage.clickSignupLogin();
 
-        // Verify 'New User Signup!' is visible
-        await expect(page.getByText('New User Signup!')).toBeVisible();
+        // Verify signup page
+        await expect(regPage.getNewUserSignupText()).toBeVisible();
 
         // Generate unique test data
         const timestamp = Date.now();
-        const testUser = {
+        const testUser: UserData = {
             name: `Test User ${timestamp}`,
             email: `testuser${timestamp}@example.com`,
             password: 'Test@123456',
@@ -52,52 +57,21 @@ test.describe('Authentication Module', () => {
             mobileNumber: '1234567890'
         };
 
-        // Enter name and email address
-        await page.getByPlaceholder('Name').fill(testUser.name);
-        await page.locator('form').filter({ hasText: 'Signup' }).getByPlaceholder('Email Address').fill(testUser.email);
+        // Complete registration
+        await regPage.enterSignupInfo(testUser.name, testUser.email);
+        await regPage.clickSignup();
 
-        // Click 'Signup' button
-        await page.getByRole('button', { name: 'Signup' }).click();
+        await expect(regPage.getAccountInfoText()).toBeVisible();
 
-        // Verify 'ENTER ACCOUNT INFORMATION' is visible
-        await expect(page.getByText('Enter Account Information')).toBeVisible();
+        await regPage.fillAccountInformation(testUser);
+        await regPage.fillAddressInformation(testUser);
+        await regPage.clickCreateAccount();
 
-        // Fill account details: Title, Password, Date of birth
-        await page.getByLabel('Mr.').check();
-        await page.getByLabel('Password *').fill(testUser.password);
+        // 3. Assert - Verify account created
+        await expect(homePage.getAccountCreatedMessage()).toBeVisible();
 
-        // Date of birth
-        await page.locator('#days').selectOption('15');
-        await page.locator('#months').selectOption('6');
-        await page.locator('#years').selectOption('1990');
-
-        // Select checkboxes
-        await page.getByLabel('Sign up for our newsletter!').check();
-        await page.getByLabel('Receive special offers from our partners!').check();
-
-        // Fill address information
-        await page.getByLabel('First name *').fill(testUser.firstName);
-        await page.getByLabel('Last name *').fill(testUser.lastName);
-        await page.getByLabel('Company', { exact: true }).fill(testUser.company);
-        await page.getByLabel('Address * (Street address, P.O. Box, Company name, etc.)').fill(testUser.address);
-        await page.getByLabel('Address 2').fill(testUser.address2);
-        await page.getByLabel('Country *').selectOption(testUser.country);
-        await page.getByLabel('State *').fill(testUser.state);
-        await page.getByLabel('City *').fill(testUser.city);
-        await page.locator('#zipcode').fill(testUser.zipcode);
-        await page.getByLabel('Mobile Number *').fill(testUser.mobileNumber);
-
-        // Click 'Create Account' button
-        await page.getByRole('button', { name: 'Create Account' }).click();
-
-        // 3. Assert - Verify 'ACCOUNT CREATED!' is visible
-        await expect(page.getByText('ACCOUNT CREATED!')).toBeVisible();
-
-        // Click 'Continue' button
-        await page.getByRole('link', { name: 'Continue' }).click();
-
-        // Verify 'Logged in as username' is visible
-        await expect(page.getByText(`Logged in as ${testUser.name}`)).toBeVisible();
+        await homePage.clickContinue();
+        await expect(homePage.getLoggedInText(testUser.name)).toBeVisible();
 
         // 4. Screenshot - Capture successful registration
         await page.screenshot({
@@ -106,13 +80,9 @@ test.describe('Authentication Module', () => {
         });
 
         // Cleanup - Delete Account
-        await page.getByRole('link', { name: 'Delete Account' }).click();
-
-        // Verify 'ACCOUNT DELETED!' is visible
-        await expect(page.getByText('Account Deleted!')).toBeVisible();
-
-        // Click 'Continue' button
-        await page.getByRole('link', { name: 'Continue' }).click();
+        await homePage.clickDeleteAccount();
+        await expect(homePage.getAccountDeletedMessage()).toBeVisible();
+        await homePage.clickContinue();
 
         // 5. Log - Confirm test completion
         console.log('✅ TC_001: User registration completed and account deleted');
@@ -125,61 +95,47 @@ test.describe('Authentication Module', () => {
      */
     test('TC_002: Login with correct credentials', async ({ page }) => {
         // Prerequisites: Create a test account first
+        const homePage = new HomePage(page);
+        const regPage = new RegistrationPage(page);
+        const loginPage = new LoginPage(page);
+
         const timestamp = Date.now();
-        const testUser = {
+        const testUser: UserData = {
             name: `Test User ${timestamp}`,
             email: `testuser${timestamp}@example.com`,
-            password: 'Test@123456'
+            password: 'Test@123456',
+            firstName: 'John',
+            lastName: 'Doe',
+            company: 'Test Co',
+            address: '123 Test St',
+            country: 'United States',
+            state: 'CA',
+            city: 'LA',
+            zipcode: '90001',
+            mobileNumber: '1234567890'
         };
 
         // Create account (setup)
-        await page.goto('https://automationexercise.com');
-        await page.getByRole('link', { name: 'Signup / Login' }).click();
-        await page.getByPlaceholder('Name').fill(testUser.name);
-        await page.locator('form').filter({ hasText: 'Signup' }).getByPlaceholder('Email Address').fill(testUser.email);
-        await page.getByRole('button', { name: 'Signup' }).click();
-        await page.getByLabel('Mr.').check();
-        await page.getByLabel('Password *').fill(testUser.password);
-        await page.locator('#days').selectOption('15');
-        await page.locator('#months').selectOption('6');
-        await page.locator('#years').selectOption('1990');
-        await page.getByLabel('First name *').fill('John');
-        await page.getByLabel('Last name *').fill('Doe');
-        await page.getByLabel('Company', { exact: true }).fill('Test Co');
-        await page.getByLabel('Address * (Street address, P.O. Box, Company name, etc.)').fill('123 Test St');
-        await page.getByLabel('Country *').selectOption('United States');
-        await page.getByLabel('State *').fill('CA');
-        await page.getByLabel('City *').fill('LA');
-        await page.locator('#zipcode').fill('90001');
-        await page.getByLabel('Mobile Number *').fill('1234567890');
-        await page.getByRole('button', { name: 'Create Account' }).click();
-        await page.getByRole('link', { name: 'Continue' }).click();
+        await homePage.goto();
+        await homePage.clickSignupLogin();
+        await regPage.registerUser(testUser);
+        await homePage.clickContinue();
 
         // Logout to test login
-        await page.getByRole('link', { name: 'Logout' }).click();
+        await homePage.clickLogout();
 
         // 1. Setup - Navigate to homepage
-        await page.goto('https://automationexercise.com');
-        await page.waitForLoadState('networkidle');
-
-        // Verify home page is visible
+        await homePage.goto();
         await expect(page).toHaveTitle(/Automation Exercise/);
 
-        // 2. Action - Click on 'Signup / Login' button
-        await page.getByRole('link', { name: 'Signup / Login' }).click();
+        // 2. Action - Login
+        await homePage.clickSignupLogin();
+        await expect(loginPage.getLoginHeaderText()).toBeVisible();
 
-        // Verify 'Login to your account' is visible
-        await expect(page.getByText('Login to your account')).toBeVisible();
+        await loginPage.login(testUser.email, testUser.password);
 
-        // Enter correct email and password
-        await page.locator('form').filter({ hasText: 'Login' }).getByPlaceholder('Email Address').fill(testUser.email);
-        await page.getByPlaceholder('Password').fill(testUser.password);
-
-        // Click 'login' button
-        await page.getByRole('button', { name: 'Login' }).click();
-
-        // 3. Assert - Verify 'Logged in as username' is visible
-        await expect(page.getByText(`Logged in as ${testUser.name}`)).toBeVisible();
+        // 3. Assert - Verify logged in
+        await expect(homePage.getLoggedInText(testUser.name)).toBeVisible();
 
         // 4. Screenshot - Capture successful login
         await page.screenshot({
@@ -188,9 +144,9 @@ test.describe('Authentication Module', () => {
         });
 
         // Cleanup - Delete Account
-        await page.getByRole('link', { name: 'Delete Account' }).click();
-        await expect(page.getByText('Account Deleted!')).toBeVisible();
-        await page.getByRole('link', { name: 'Continue' }).click();
+        await homePage.clickDeleteAccount();
+        await expect(homePage.getAccountDeletedMessage()).toBeVisible();
+        await homePage.clickContinue();
 
         // 5. Log - Confirm test completion
         console.log('✅ TC_002: Login with correct credentials completed');
@@ -202,28 +158,21 @@ test.describe('Authentication Module', () => {
      * Steps: 8
      */
     test('TC_003: Login with incorrect credentials', async ({ page }) => {
-        // 1. Setup - Navigate to homepage
-        await page.goto('https://automationexercise.com');
-        await page.waitForLoadState('networkidle');
+        // 1. Setup - Initialize page objects and navigate
+        const homePage = new HomePage(page);
+        const loginPage = new LoginPage(page);
 
-        // Verify home page is visible
+        await homePage.goto();
         await expect(page).toHaveTitle(/Automation Exercise/);
 
-        // 2. Action - Click on 'Signup / Login' button
-        await page.getByRole('link', { name: 'Signup / Login' }).click();
+        // 2. Action - Attempt login with invalid credentials
+        await homePage.clickSignupLogin();
+        await expect(loginPage.getLoginHeaderText()).toBeVisible();
 
-        // Verify 'Login to your account' is visible
-        await expect(page.getByText('Login to your account')).toBeVisible();
+        await loginPage.login('invalid@test.com', 'wrongpassword123');
 
-        // Enter incorrect email and password
-        await page.locator('form').filter({ hasText: 'Login' }).getByPlaceholder('Email Address').fill('invalid@test.com');
-        await page.getByPlaceholder('Password').fill('wrongpassword123');
-
-        // Click 'login' button
-        await page.getByRole('button', { name: 'Login' }).click();
-
-        // 3. Assert - Verify error message is visible
-        await expect(page.getByText('Your email or password is incorrect!')).toBeVisible();
+        // 3. Assert - Verify error message
+        await expect(loginPage.getErrorMessage()).toBeVisible();
 
         // 4. Screenshot - Capture error message
         await page.screenshot({
@@ -242,44 +191,40 @@ test.describe('Authentication Module', () => {
      */
     test('TC_004: Logout User', async ({ page }) => {
         // Prerequisites: Create and login with test account
+        const homePage = new HomePage(page);
+        const regPage = new RegistrationPage(page);
+        const loginPage = new LoginPage(page);
+
         const timestamp = Date.now();
-        const testUser = {
+        const testUser: UserData = {
             name: `Test User ${timestamp}`,
             email: `testuser${timestamp}@example.com`,
-            password: 'Test@123456'
+            password: 'Test@123456',
+            firstName: 'John',
+            lastName: 'Doe',
+            company: 'Test Co',
+            address: '123 Test St',
+            country: 'United States',
+            state: 'CA',
+            city: 'LA',
+            zipcode: '90001',
+            mobileNumber: '1234567890'
         };
 
         // Create and login (setup)
-        await page.goto('https://automationexercise.com');
-        await page.getByRole('link', { name: 'Signup / Login' }).click();
-        await page.getByPlaceholder('Name').fill(testUser.name);
-        await page.locator('form').filter({ hasText: 'Signup' }).getByPlaceholder('Email Address').fill(testUser.email);
-        await page.getByRole('button', { name: 'Signup' }).click();
-        await page.getByLabel('Mr.').check();
-        await page.getByLabel('Password *').fill(testUser.password);
-        await page.locator('#days').selectOption('15');
-        await page.locator('#months').selectOption('6');
-        await page.locator('#years').selectOption('1990');
-        await page.getByLabel('First name *').fill('John');
-        await page.getByLabel('Last name *').fill('Doe');
-        await page.getByLabel('Company', { exact: true }).fill('Test Co');
-        await page.getByLabel('Address * (Street address, P.O. Box, Company name, etc.)').fill('123 Test St');
-        await page.getByLabel('Country *').selectOption('United States');
-        await page.getByLabel('State *').fill('CA');
-        await page.getByLabel('City *').fill('LA');
-        await page.locator('#zipcode').fill('90001');
-        await page.getByLabel('Mobile Number *').fill('1234567890');
-        await page.getByRole('button', { name: 'Create Account' }).click();
-        await page.getByRole('link', { name: 'Continue' }).click();
+        await homePage.goto();
+        await homePage.clickSignupLogin();
+        await regPage.registerUser(testUser);
+        await homePage.clickContinue();
 
         // 1. Setup - Verify logged in
-        await expect(page.getByText(`Logged in as ${testUser.name}`)).toBeVisible();
+        await expect(homePage.getLoggedInText(testUser.name)).toBeVisible();
 
-        // 2. Action - Click 'Logout' button
-        await page.getByRole('link', { name: 'Logout' }).click();
+        // 2. Action - Logout
+        await homePage.clickLogout();
 
         // 3. Assert - Verify navigated to login page
-        await expect(page.getByText('Login to your account')).toBeVisible();
+        await expect(loginPage.getLoginHeaderText()).toBeVisible();
         await expect(page.url()).toContain('/login');
 
         // 4. Screenshot - Capture logout state
@@ -289,11 +234,9 @@ test.describe('Authentication Module', () => {
         });
 
         // Cleanup - Login and delete account
-        await page.locator('form').filter({ hasText: 'Login' }).getByPlaceholder('Email Address').fill(testUser.email);
-        await page.getByPlaceholder('Password').fill(testUser.password);
-        await page.getByRole('button', { name: 'Login' }).click();
-        await page.getByRole('link', { name: 'Delete Account' }).click();
-        await page.getByRole('link', { name: 'Continue' }).click();
+        await loginPage.login(testUser.email, testUser.password);
+        await homePage.clickDeleteAccount();
+        await homePage.clickContinue();
 
         // 5. Log - Confirm test completion
         console.log('✅ TC_004: Logout completed - user redirected to login page');
@@ -306,61 +249,46 @@ test.describe('Authentication Module', () => {
      */
     test('TC_005: Register with existing email', async ({ page }) => {
         // Prerequisites: Create a test account first
+        const homePage = new HomePage(page);
+        const regPage = new RegistrationPage(page);
+        const loginPage = new LoginPage(page);
+
         const timestamp = Date.now();
-        const existingUser = {
+        const existingUser: UserData = {
             name: `Existing User ${timestamp}`,
             email: `existing${timestamp}@example.com`,
-            password: 'Test@123456'
+            password: 'Test@123456',
+            firstName: 'John',
+            lastName: 'Doe',
+            company: 'Test Co',
+            address: '123 Test St',
+            country: 'United States',
+            state: 'CA',
+            city: 'LA',
+            zipcode: '90001',
+            mobileNumber: '1234567890'
         };
 
         // Create existing account (setup)
-        await page.goto('https://automationexercise.com');
-        await page.getByRole('link', { name: 'Signup / Login' }).click();
-        await page.getByPlaceholder('Name').fill(existingUser.name);
-        await page.locator('form').filter({ hasText: 'Signup' }).getByPlaceholder('Email Address').fill(existingUser.email);
-        await page.getByRole('button', { name: 'Signup' }).click();
-        await page.getByLabel('Mr.').check();
-        await page.getByLabel('Password *').fill(existingUser.password);
-        await page.locator('#days').selectOption('15');
-        await page.locator('#months').selectOption('6');
-        await page.locator('#years').selectOption('1990');
-        await page.getByLabel('First name *').fill('John');
-        await page.getByLabel('Last name *').fill('Doe');
-        await page.getByLabel('Company', { exact: true }).fill('Test Co');
-        await page.getByLabel('Address * (Street address, P.O. Box, Company name, etc.)').fill('123 Test St');
-        await page.getByLabel('Country *').selectOption('United States');
-        await page.getByLabel('State *').fill('CA');
-        await page.getByLabel('City *').fill('LA');
-        await page.locator('#zipcode').fill('90001');
-        await page.getByLabel('Mobile Number *').fill('1234567890');
-        await page.getByRole('button', { name: 'Create Account' }).click();
-        await page.getByRole('link', { name: 'Continue' }).click();
-
-        // Logout
-        await page.getByRole('link', { name: 'Logout' }).click();
+        await homePage.goto();
+        await homePage.clickSignupLogin();
+        await regPage.registerUser(existingUser);
+        await homePage.clickContinue();
+        await homePage.clickLogout();
 
         // 1. Setup - Navigate to homepage
-        await page.goto('https://automationexercise.com');
-        await page.waitForLoadState('networkidle');
-
-        // Verify home page is visible
+        await homePage.goto();
         await expect(page).toHaveTitle(/Automation Exercise/);
 
-        // 2. Action - Click on 'Signup / Login' button
-        await page.getByRole('link', { name: 'Signup / Login' }).click();
+        // 2. Action - Attempt to register with existing email
+        await homePage.clickSignupLogin();
+        await expect(regPage.getNewUserSignupText()).toBeVisible();
 
-        // Verify 'New User Signup!' is visible
-        await expect(page.getByText('New User Signup!')).toBeVisible();
+        await regPage.enterSignupInfo('New User', existingUser.email);
+        await regPage.clickSignup();
 
-        // Enter name and existing email address
-        await page.getByPlaceholder('Name').fill('New User');
-        await page.locator('form').filter({ hasText: 'Signup' }).getByPlaceholder('Email Address').fill(existingUser.email);
-
-        // Click 'Signup' button
-        await page.getByRole('button', { name: 'Signup' }).click();
-
-        // 3. Assert - Verify error 'Email Address already exist!' is visible
-        await expect(page.getByText('Email Address already exist!')).toBeVisible();
+        // 3. Assert - Verify error message
+        await expect(regPage.getEmailExistsError()).toBeVisible();
 
         // 4. Screenshot - Capture error message
         await page.screenshot({
@@ -369,11 +297,9 @@ test.describe('Authentication Module', () => {
         });
 
         // Cleanup - Login and delete the existing account
-        await page.locator('form').filter({ hasText: 'Login' }).getByPlaceholder('Email Address').fill(existingUser.email);
-        await page.getByPlaceholder('Password').fill(existingUser.password);
-        await page.getByRole('button', { name: 'Login' }).click();
-        await page.getByRole('link', { name: 'Delete Account' }).click();
-        await page.getByRole('link', { name: 'Continue' }).click();
+        await loginPage.login(existingUser.email, existingUser.password);
+        await homePage.clickDeleteAccount();
+        await homePage.clickContinue();
 
         // 5. Log - Confirm test completion
         console.log('✅ TC_005: Register with existing email - error message verified');
@@ -384,9 +310,15 @@ test.describe('Authentication Module', () => {
 /**
  * Test Documentation
  * 
- * This file contains authentication tests following the 5-step structure:
+ * This file contains authentication tests refactored using Page Object Model:
+ * - BasePage: Common functionality
+ * - HomePage: Navigation and user status
+ * - LoginPage: Login functionality
+ * - RegistrationPage: Complete registration flow
+ * 
+ * Tests follow the 5-step structure:
  * 1. Setup - Navigate and prepare test environment
- * 2. Action - Perform user actions
+ * 2. Action - Perform user actions using page objects
  * 3. Assert - Verify expected results
  * 4. Screenshot - Capture visual evidence
  * 5. Log - Output test results
@@ -395,8 +327,8 @@ test.describe('Authentication Module', () => {
  * 
  * Test Data:
  * - Dynamic timestamps ensure unique emails for each test run
- * - Consistent password format for all tests
- * - Standard address information for registration
+ * - UserData interface ensures type safety
+ * - Consistent test data structure across all tests
  * 
  * Screenshots saved to: screenshots/auth/
  */
