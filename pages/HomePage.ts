@@ -12,6 +12,7 @@ export class HomePage extends BasePage {
     private readonly logoutLink: Locator;
     private readonly deleteAccountLink: Locator;
     private readonly continueButton: Locator;
+    private readonly contactUsLink: Locator;
 
     constructor(page: Page) {
         super(page);
@@ -19,6 +20,7 @@ export class HomePage extends BasePage {
         this.logoutLink = page.getByRole('link', { name: 'Logout' });
         this.deleteAccountLink = page.getByRole('link', { name: 'Delete Account' });
         this.continueButton = page.getByRole('link', { name: 'Continue' });
+        this.contactUsLink = page.getByRole('link', { name: 'Contact us' });
     }
 
     /**
@@ -54,6 +56,13 @@ export class HomePage extends BasePage {
      */
     async clickContinue(): Promise<void> {
         await this.continueButton.click();
+    }
+
+    /**
+     * Click Contact Us button
+     */
+    async clickContactUs(): Promise<void> {
+        await this.contactUsLink.click();
     }
 
     /**
